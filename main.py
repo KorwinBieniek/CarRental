@@ -1,5 +1,8 @@
 import tkinter as tk
+import tkinter.ttk as ttk
 import mysql.connector
+
+WINDOW_SIZE = "600x400"
 
 
 def register():
@@ -45,6 +48,12 @@ def register_user():
 def main_app():
     window = tk.Tk()
     window.title("Wypożyczalnia Samochodów")
+    tk.Label(window,
+             text="Wypożycz swój wymarzony samochód").pack()
+    img = tk.PhotoImage(file='test_car.png')
+    tk.Label(window, image=img).pack()
+    window.geometry("660x300")
+    window.configure(background="white")
 
     def connect_to_database():
         connection = mysql.connector.connect(host='localhost',
@@ -82,19 +91,25 @@ def main_app():
     def select_sample_vehicles_query():
         cursor.execute('''SELECT review.car_review_id, review.car_segment, vehicle.vehicle_type, vehicle.capacity, vehicle.manufactured_year, vehicle.sec_pay_status
                             FROM tbl_car_review review JOIN tbl_vehicle vehicle ON review.vehicle_id = vehicle .vehicle_id
-                            WHERE vehicle.availability = TRUE LIMIT 5;''')
+                            WHERE vehicle.availability = TRUE;''')
         myresult = cursor.fetchall()
-        columns = ""
+        outer_list = []
+        columns = []
+        counter = 0
         for x in myresult:
             for i in x:
-                columns += str(i) + " "
-            columns += '\n'
-        return columns
+                columns.append(str(i))
+                counter += 1
+                if counter == 6:
+                    outer_list.append(columns)
+                    columns = []
+                    counter = 0
+        return outer_list
 
     def add_customers_query(sample_name, sample_surname, sample_number, sample_address):
         cursor.execute(
-            "INSERT INTO tbl_customer (name, surname, tel_number, addres) VALUES (%s, %s, %s, %s);", (sample_name, sample_surname, sample_number, sample_address))
-
+            "INSERT INTO tbl_customer (name, surname, tel_number, addres) VALUES (%s, %s, %s, %s);",
+            (sample_name, sample_surname, sample_number, sample_address))
 
     def select_specific_customer(name):
         cursor.execute('SELECT * FROM tbl_customer WHERE name = (%s)', (name,))
@@ -114,13 +129,13 @@ def main_app():
         return_button = tk.Button(
             window,
             text="Powrót",
-            width=7,
-            height=1,
+            width=9,
+            height=2,
             bg="white",
             fg="black",
             command=lambda: hide_main_window(window, main_window)
         )
-        return_button.place(x=135, y=170)
+        return_button.place(x=520, y=355)
 
     def show_customers(show_customers_window):
         result = str(select_sample_customers_query())
@@ -128,13 +143,83 @@ def main_app():
                  text=result).pack()
 
     def show_cars(show_customers_window):
-        result = str(select_sample_vehicles_query())
-        tk.Label(show_customers_window,
-                 text=result).pack()
+        show_cars_screen = tk.Toplevel(show_customers_window)
+        show_cars_screen.title("Tabela samochodów")
+        show_cars_screen.geometry("800x280")
+        result = select_sample_vehicles_query()
+        my_tree = ttk.Treeview(show_cars_screen)
+        my_tree.pack()
 
-    def add_customer(add_customers_window):
-        add_customers_query("Korwin", "Bieniek", "123456789", "Gliwice, Polska")
-        result = str(select_specific_customer("Korwin"))
+        my_tree['columns'] = ('ID', 'Car Segment', 'Vehicle Type',
+                              'Capacity', 'Manufactured Year', 'Sec Pay Status')
+        my_tree.column('#0', width=0, stretch=tk.NO)
+        my_tree.column('ID', anchor=tk.W, width=100)
+        my_tree.column('Car Segment', anchor=tk.W, width=100)
+        my_tree.column('Vehicle Type', anchor=tk.CENTER, width=140)
+        my_tree.column('Capacity', anchor=tk.CENTER, width=140)
+        my_tree.column('Manufactured Year', anchor=tk.CENTER, width=140)
+        my_tree.column('Sec Pay Status', anchor=tk.CENTER, width=140)
+
+        my_tree.heading('ID', text='ID', anchor=tk.W)
+        my_tree.heading('Car Segment', text='Car Segment', anchor=tk.W)
+        my_tree.heading('Vehicle Type', text='Vehicle Type', anchor=tk.W)
+        my_tree.heading('Capacity', text='Capacity', anchor=tk.W)
+        my_tree.heading('Manufactured Year', text='Manufactured Year', anchor=tk.W)
+        my_tree.heading('Sec Pay Status', text='Sec Pay Status', anchor=tk.W)
+
+        counter = 0
+        for record in result:
+            if counter == 10:
+                break
+            my_tree.insert(parent='', index='end', values=record)
+            counter += 1
+
+        back_button = tk.Button(
+            show_cars_screen,
+            text="Poprzednia strona",
+            width=16,
+            height=2,
+            bg="white",
+            fg="black",
+            command=lambda: show_previous_cars(my_tree, counter, result)
+        )
+        back_button.pack(side=tk.LEFT)
+
+        next_button = tk.Button(
+            show_cars_screen,
+            text="Następna strona",
+            width=16,
+            height=2,
+            bg="white",
+            fg="black",
+            command=lambda: show_next_cars(my_tree, counter, result)
+        )
+        next_button.pack(side=tk.LEFT)
+
+    def show_next_cars(my_tree, counter, result):
+
+        my_tree.delete(*my_tree.get_children())
+
+        new_counter = 0
+        for record in result:
+            if new_counter >= counter and new_counter < counter + 10:
+                my_tree.insert(parent='', index='end', values=record)
+            new_counter += 1
+
+    def show_previous_cars(my_tree, counter, result):
+
+        my_tree.delete(*my_tree.get_children())
+
+        new_counter = counter
+        for record in result:
+            if new_counter <= counter and new_counter > counter - 10:
+                my_tree.insert(parent='', index='end', values=record)
+            new_counter -= 1
+
+    def add_customer(add_customers_window, name, surname, number, address):
+
+        add_customers_query(name, surname, number, address)
+        result = str(select_specific_customer(name))
         print(result)
         tk.Label(add_customers_window,
                  text=result).pack()
@@ -142,7 +227,7 @@ def main_app():
     def open_rent_car_window():
         rent_car_window = tk.Toplevel(window)
         rent_car_window.title("Wypożycz Samochód")
-        rent_car_window.geometry("300x200")
+        rent_car_window.geometry(WINDOW_SIZE)
         tk.Label(rent_car_window,
                  text="Tutaj możesz wypożyczyć samochód").pack()
         show_surnames_button = tk.Button(
@@ -161,26 +246,48 @@ def main_app():
     def open_add_customer_window():
         add_customer_window = tk.Toplevel(window)
         add_customer_window.title("Dodaj Klienta")
-        add_customer_window.geometry("300x200")
+        add_customer_window.geometry((WINDOW_SIZE))
+        # Napisy nad entry fields
+        label_frame = tk.Frame(add_customer_window)
+        name_label = tk.Label(label_frame, text="Imię      ", font=("Courier", 12))
+        surname_label = tk.Label(label_frame, text="Nazwisko   ", font=("Courier", 12))
+        number_label = tk.Label(label_frame, text="Numer tel   ", font=("Courier", 12))
+        address_label = tk.Label(label_frame, text="Adres", font=("Courier", 12))
+        name_label.pack(side=tk.LEFT)
+        surname_label.pack(side=tk.LEFT)
+        number_label.pack(side=tk.LEFT)
+        address_label.pack(side=tk.LEFT)
+        label_frame.pack()
+        input_frame = tk.Frame(add_customer_window)
+        name_input = tk.Entry(input_frame)
+        surname_input = tk.Entry(input_frame)
+        number_input = tk.Entry(input_frame)
+        address_input = tk.Entry(input_frame)
+        name_input.pack(side=tk.LEFT)
+        surname_input.pack(side=tk.LEFT)
+        number_input.pack(side=tk.LEFT)
+        address_input.pack(side=tk.LEFT)
+        input_frame.pack()
         tk.Label(add_customer_window,
                  text="Tutaj możesz dodać klienta").pack()
-        show_surnames_button = tk.Button(
+        add_customer_button = tk.Button(
             add_customer_window,
             text="Dodaj klienta",
             width=12,
             height=2,
             bg="white",
             fg="black",
-            command=lambda: add_customer(add_customer_window)
+            command=lambda: add_customer(add_customer_window, name_input.get(), surname_input.get(), number_input.get(),
+                                         address_input.get())
         )
-        show_surnames_button.pack()
+        add_customer_button.pack()
         add_return_button(add_customer_window, window)
         window.iconify()
 
     def open_show_customers_window():
         show_customers_window = tk.Toplevel(window)
         show_customers_window.title("Wyświetl klientów")
-        show_customers_window.geometry("300x400")
+        show_customers_window.geometry(WINDOW_SIZE)
         tk.Label(show_customers_window,
                  text="Tutaj możesz wyświetlić klientów").pack()
         show_surnames_button = tk.Button(
@@ -196,46 +303,101 @@ def main_app():
         add_return_button(show_customers_window, window)
         window.iconify()
 
+    def open_reserve_car_window():
+        show_reserve_car_window = tk.Toplevel(window)
+        show_reserve_car_window.title("Zarezerwuj samochód")
+        show_reserve_car_window.geometry(WINDOW_SIZE)
+        tk.Label(show_reserve_car_window,
+                 text="Tutaj możesz zarezerwować samochód").pack()
+        show_reserve_car_button = tk.Button(
+            show_reserve_car_window,
+            text="Zarezerwuj samochód",
+            width=18,
+            height=2,
+            bg="white",
+            fg="black",
+        )
+        show_reserve_car_button.pack()
+        add_return_button(show_reserve_car_window, window)
+        window.iconify()
+
+    def open_check_reservations_window():
+        show_check_reservations_window = tk.Toplevel(window)
+        show_check_reservations_window.title("Wyświetl rezerwacje")
+        show_check_reservations_window.geometry(WINDOW_SIZE)
+        tk.Label(show_check_reservations_window,
+                 text="Tutaj możesz wyświetlić/usunąć rezerwacje").pack()
+        show_check_reservations_button = tk.Button(
+            show_check_reservations_window,
+            text="Pokaż rezerwacje",
+            width=16,
+            height=2,
+            bg="white",
+            fg="black",
+        )
+        show_check_reservations_button.pack()
+        add_return_button(show_check_reservations_window, window)
+        window.iconify()
+
     def create_main():
         button_frame = tk.Frame()
-        title = tk.Label(
-            text="Wypożyczalnia Samochodów"
-        )
 
         add_customer_button = tk.Button(
             master=button_frame,
-            text="Dodaj Klienta",
-            width=15,
+            text="Katalog pojazdów",
+            width=18,
             height=5,
             bg="white",
             fg="black",
             command=open_add_customer_window
         )
 
-        show_customer_button = tk.Button(
-            master=button_frame,
-            text="Wyświetl Klientów",
-            width=15,
-            height=5,
-            bg="white",
-            fg="black",
-            command=open_show_customers_window
-        )
-
         rent_car_button = tk.Button(
             master=button_frame,
             text="Wypożycz samochód",
-            width=15,
+            width=18,
             height=5,
             bg="white",
             fg="black",
             command=open_rent_car_window
         )
 
+        return_car_button = tk.Button(
+            master=button_frame,
+            text="Zwróć samochód",
+            width=18,
+            height=5,
+            bg="white",
+            fg="black",
+            command=open_show_customers_window
+        )
+
+        reserve_car_button = tk.Button(
+            master=button_frame,
+            text="Zarezerwuj samochód",
+            width=18,
+            height=5,
+            bg="white",
+            fg="black",
+            command=open_reserve_car_window
+        )
+
+        check_reservations_button = tk.Button(
+            master=button_frame,
+            text="Sprawdź rezerwacje",
+            width=18,
+            height=5,
+            bg="white",
+            fg="black",
+            command=open_check_reservations_window
+        )
+
         add_customer_button.pack(side=tk.LEFT)
-        show_customer_button.pack(side=tk.LEFT)
         rent_car_button.pack(side=tk.LEFT)
-        title.pack()
+        return_car_button.pack(side=tk.LEFT)
+        reserve_car_button.pack(side=tk.LEFT)
+        check_reservations_button.pack(side=tk.LEFT)
+
         button_frame.pack(fill=tk.X)
 
     conn, cursor = connect_to_database()
