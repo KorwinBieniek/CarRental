@@ -112,7 +112,17 @@ def main_app():
             "INSERT INTO tbl_customer (name, surname, tel_number, addres) VALUES (%s, %s, %s, %s);",
             (sample_name, sample_surname, sample_number, sample_address))
 
-    def select_specific_customer(name):
+    def select_specific_customer(name, surname):
+        cursor.execute('SELECT * FROM tbl_customer WHERE name = (%s) and surname = (%s)', (name, surname))
+        myresult = cursor.fetchall()
+        columns = ""
+        for x in myresult:
+            for i in x:
+                columns += str(i) + " "
+            columns += '\n'
+        return columns
+
+    def select_specific_customer_2(add_customer_window, name, surname):
         cursor.execute('SELECT * FROM tbl_customer WHERE name = (%s)', (name,))
         myresult = cursor.fetchall()
         columns = ""
@@ -120,6 +130,8 @@ def main_app():
             for i in x:
                 columns += str(i) + " "
             columns += '\n'
+        # name_selection_label = tk.Label(add_customer_window, text=columns, font=("Courier", 12))
+        # name_selection_label.pack()
         return columns
 
     def hide_main_window(window, main_window):
@@ -197,6 +209,21 @@ def main_app():
         )
         next_button.pack(side=tk.LEFT)
 
+        def selectItem():
+            curItem = my_tree.focus()
+            return my_tree.item(curItem)['values']
+
+        select_button = tk.Button(
+            show_cars_screen,
+            text="Wybierz samochód",
+            width=16,
+            height=2,
+            bg="white",
+            fg="black",
+            command=lambda: open_add_customer_window(selectItem())
+        )
+        select_button.pack(side=tk.LEFT)
+
     def show_next_cars(my_tree, counter, result):
 
         my_tree.delete(*my_tree.get_children())
@@ -225,6 +252,13 @@ def main_app():
         tk.Label(add_customers_window,
                  text=result).pack()
 
+    def select_customer(add_customers_window, name, surname):
+
+        result = str(select_specific_customer(name, surname))
+        print(result)
+        tk.Label(add_customers_window,
+                 text=result).pack()
+
     def open_rent_car_window(date_selection):
         rent_car_window = tk.Toplevel(window)
         rent_car_window.title("Wypożycz Samochód")
@@ -248,43 +282,62 @@ def main_app():
         add_return_button(rent_car_window, window)
         window.iconify()
 
-    def open_add_customer_window():
+    def open_add_customer_window(values):
         add_customer_window = tk.Toplevel(window)
         add_customer_window.title("Dodaj Klienta")
         add_customer_window.geometry((WINDOW_SIZE))
-        # Napisy nad entry fields
         label_frame = tk.Frame(add_customer_window)
-        name_label = tk.Label(label_frame, text="Imię      ", font=("Courier", 12))
-        surname_label = tk.Label(label_frame, text="Nazwisko   ", font=("Courier", 12))
-        number_label = tk.Label(label_frame, text="Numer tel   ", font=("Courier", 12))
-        address_label = tk.Label(label_frame, text="Adres", font=("Courier", 12))
-        name_label.pack(side=tk.LEFT)
-        surname_label.pack(side=tk.LEFT)
-        number_label.pack(side=tk.LEFT)
-        address_label.pack(side=tk.LEFT)
-        label_frame.pack()
-        input_frame = tk.Frame(add_customer_window)
-        name_input = tk.Entry(input_frame)
-        surname_input = tk.Entry(input_frame)
-        number_input = tk.Entry(input_frame)
-        address_input = tk.Entry(input_frame)
-        name_input.pack(side=tk.LEFT)
-        surname_input.pack(side=tk.LEFT)
-        number_input.pack(side=tk.LEFT)
-        address_input.pack(side=tk.LEFT)
-        input_frame.pack()
+
+        # Napisy nad entry fields
+        # car_data_label = tk.Label(label_frame, text=values)
+        # car_data_label.pack()
+        # name_label = tk.Label(label_frame, text="Imię      ", font=("Courier", 12))
+        # surname_label = tk.Label(label_frame, text="Nazwisko   ", font=("Courier", 12))
+        # number_label = tk.Label(label_frame, text="Numer tel   ", font=("Courier", 12))
+        # address_label = tk.Label(label_frame, text="Adres", font=("Courier", 12))
+        # name_label.pack(side=tk.LEFT)
+        # surname_label.pack(side=tk.LEFT)
+        # number_label.pack(side=tk.LEFT)
+        # address_label.pack(side=tk.LEFT)
+        # label_frame.pack()
+        # input_frame = tk.Frame(add_customer_window)
+        # name_input = tk.Entry(input_frame)
+        # surname_input = tk.Entry(input_frame)
+        # number_input = tk.Entry(input_frame)
+        # address_input = tk.Entry(input_frame)
+        # name_input.pack(side=tk.LEFT)
+        # surname_input.pack(side=tk.LEFT)
+        # number_input.pack(side=tk.LEFT)
+        # address_input.pack(side=tk.LEFT)
+        # input_frame.pack()
+
+        label_selection_frame = tk.Frame(add_customer_window)
+        input_selection_frame = tk.Frame(add_customer_window)
+        name_selection_label = tk.Label(label_selection_frame, text="Imię      ", font=("Courier", 12))
+        surname_selection_label = tk.Label(input_selection_frame, text="Nazwisko   ", font=("Courier", 12))
+        name_selection_input = tk.Entry(input_selection_frame)
+        surname_selection_input = tk.Entry(label_selection_frame)
+        name_selection_label.pack(side=tk.LEFT)
+        surname_selection_label.pack(side=tk.LEFT)
+        name_selection_input.pack(side=tk.LEFT)
+        surname_selection_input.pack(side=tk.LEFT)
+        label_selection_frame.pack()
+        input_selection_frame.pack()
+
         tk.Label(add_customer_window,
                  text="Tutaj możesz dodać klienta").pack()
         add_customer_button = tk.Button(
             add_customer_window,
-            text="Dodaj klienta",
+            text="Wybierz klienta",
             width=12,
             height=2,
             bg="white",
             fg="black",
-            command=lambda: add_customer(add_customer_window, name_input.get(), surname_input.get(), number_input.get(),
-                                         address_input.get())
+            command=lambda: select_specific_customer_2(add_customer_window, name_selection_input.get(),
+                                                       surname_selection_input.get())
         )
+        print(select_specific_customer_2(add_customer_window, name_selection_input.get(),
+                                         surname_selection_input.get()))
         add_customer_button.pack()
         add_return_button(add_customer_window, window)
         window.iconify()
@@ -328,10 +381,10 @@ def main_app():
         window.iconify()
 
     def open_select_date_window():
-        date_selection = test_f()
+        date_selection = return_date_selection()
         open_rent_car_window(date_selection)
 
-    def test_f():
+    def return_date_selection():
         def cal_done():
             top.withdraw()
             root.quit()
@@ -378,8 +431,8 @@ def main_app():
             width=18,
             height=5,
             bg="white",
-            fg="black",
-            command=open_add_customer_window
+            fg="black"
+            # command=open_add_customer_window
         )
 
         rent_car_button = tk.Button(
@@ -440,18 +493,20 @@ def main_app():
 def log_user():
     username_info = username.get()
     password_info = password.get()
+    try:
+        with open(f'{username_info}.txt', "r") as file:
 
-    with open(f'{username_info}.txt', "r") as file:
+            credentials = file.readlines()
 
-        credentials = file.readlines()
-        print(credentials)
-        if password_info == credentials[1]:
-            tk.Label(screen1, text="Logowanie zakończone sukcesem")
-            screen.destroy()
-            main_app()
-        else:
-            wrong_password_label = tk.Label(screen1, text="Błędne hasło")
-            wrong_password_label.pack()
+            if password_info == credentials[1]:
+                screen.destroy()
+                main_app()
+            else:
+                password_processing = tk.Label(screen1, text='Błędne hasło')
+                password_processing.pack()
+    except:
+        username_processing = tk.Label(screen1, text='Błędna nazwa użytkownika')
+        username_processing.pack()
 
 
 def login():
