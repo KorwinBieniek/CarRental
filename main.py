@@ -1,6 +1,7 @@
 import tkinter as tk
 import tkinter.ttk as ttk
 import mysql.connector
+from tkcalendar import Calendar
 
 WINDOW_SIZE = "600x400"
 
@@ -88,10 +89,10 @@ def main_app():
             columns += '\n'
         return columns
 
-    def select_sample_vehicles_query():
-        cursor.execute('''SELECT review.car_review_id, review.car_segment, vehicle.vehicle_type, vehicle.capacity, vehicle.manufactured_year, vehicle.sec_pay_status
+    def select_sample_vehicles_query(date_selection):
+        cursor.execute(f'''SELECT review.car_review_id, review.car_segment, vehicle.vehicle_type, vehicle.capacity, vehicle.manufactured_year, vehicle.sec_pay_status
                             FROM tbl_car_review review JOIN tbl_vehicle vehicle ON review.vehicle_id = vehicle .vehicle_id
-                            WHERE vehicle.availability = TRUE;''')
+                            WHERE vehicle.availability = TRUE AND vehicle.manufactured_year = {date_selection};''')
         myresult = cursor.fetchall()
         outer_list = []
         columns = []
@@ -142,11 +143,11 @@ def main_app():
         tk.Label(show_customers_window,
                  text=result).pack()
 
-    def show_cars(show_customers_window):
-        show_cars_screen = tk.Toplevel(show_customers_window)
+    def show_cars(show_cars_window, date_selection):
+        show_cars_screen = tk.Toplevel(show_cars_window)
         show_cars_screen.title("Tabela samochodów")
         show_cars_screen.geometry("800x280")
-        result = select_sample_vehicles_query()
+        result = select_sample_vehicles_query(date_selection)
         my_tree = ttk.Treeview(show_cars_screen)
         my_tree.pack()
 
@@ -224,12 +225,15 @@ def main_app():
         tk.Label(add_customers_window,
                  text=result).pack()
 
-    def open_rent_car_window():
+    def open_rent_car_window(date_selection):
         rent_car_window = tk.Toplevel(window)
         rent_car_window.title("Wypożycz Samochód")
         rent_car_window.geometry(WINDOW_SIZE)
         tk.Label(rent_car_window,
                  text="Tutaj możesz wypożyczyć samochód").pack()
+
+        date_selection = str(date_selection)[:4]
+
         show_surnames_button = tk.Button(
             rent_car_window,
             text="Pokaż pojazdy",
@@ -237,9 +241,10 @@ def main_app():
             height=2,
             bg="white",
             fg="black",
-            command=lambda: show_cars(rent_car_window)
+            command=lambda: show_cars(rent_car_window, date_selection)
         )
         show_surnames_button.pack()
+
         add_return_button(rent_car_window, window)
         window.iconify()
 
@@ -309,6 +314,7 @@ def main_app():
         show_reserve_car_window.geometry(WINDOW_SIZE)
         tk.Label(show_reserve_car_window,
                  text="Tutaj możesz zarezerwować samochód").pack()
+
         show_reserve_car_button = tk.Button(
             show_reserve_car_window,
             text="Zarezerwuj samochód",
@@ -320,6 +326,30 @@ def main_app():
         show_reserve_car_button.pack()
         add_return_button(show_reserve_car_window, window)
         window.iconify()
+
+    def open_select_date_window():
+        date_selection = test_f()
+        open_rent_car_window(date_selection)
+
+    def test_f():
+        def cal_done():
+            top.withdraw()
+            root.quit()
+
+        root = tk.Tk()
+        root.withdraw()  # keep the root window from appearing
+
+        top = tk.Toplevel(root)
+
+        cal = Calendar(top,
+                       font="Arial 14", selectmode='day',
+                       cursor="hand1")
+        cal.pack(fill="both", expand=True)
+        ttk.Button(top, text="ok", command=cal_done).pack()
+
+        selected_date = None
+        root.mainloop()
+        return cal.selection_get()
 
     def open_check_reservations_window():
         show_check_reservations_window = tk.Toplevel(window)
@@ -359,7 +389,8 @@ def main_app():
             height=5,
             bg="white",
             fg="black",
-            command=open_rent_car_window
+            command=open_select_date_window
+            # command=open_rent_car_window
         )
 
         return_car_button = tk.Button(
