@@ -122,17 +122,21 @@ def main_app():
             columns += '\n'
         return columns
 
-    def select_specific_customer_2(add_customer_window, name, surname):
-        cursor.execute('SELECT * FROM tbl_customer WHERE name = (%s)', (name,))
+    def select_specific_customer_2(name, surname):
+        cursor.execute(f'''SELECT * FROM tbl_customer WHERE name = "{name}" AND surname = "{surname}";''')
         myresult = cursor.fetchall()
-        columns = ""
+        outer_list = []
+        columns = []
+        counter = 0
         for x in myresult:
             for i in x:
-                columns += str(i) + " "
-            columns += '\n'
-        # name_selection_label = tk.Label(add_customer_window, text=columns, font=("Courier", 12))
-        # name_selection_label.pack()
-        return columns
+                columns.append(str(i))
+                counter += 1
+                if counter == 5:
+                    outer_list.append(columns)
+                    columns = []
+                    counter = 0
+        return outer_list
 
     def hide_main_window(window, main_window):
         main_window.deiconify()
@@ -247,10 +251,10 @@ def main_app():
     def add_customer(add_customers_window, name, surname, number, address):
 
         add_customers_query(name, surname, number, address)
-        result = str(select_specific_customer(name))
-        print(result)
-        tk.Label(add_customers_window,
-                 text=result).pack()
+        # result = str(select_specific_customer(name))
+        # print(result)
+        # tk.Label(add_customers_window,
+        #          text=result).pack()
 
     def select_customer(add_customers_window, name, surname):
 
@@ -288,44 +292,22 @@ def main_app():
         add_customer_window.geometry((WINDOW_SIZE))
         label_frame = tk.Frame(add_customer_window)
 
-        # Napisy nad entry fields
-        # car_data_label = tk.Label(label_frame, text=values)
-        # car_data_label.pack()
-        # name_label = tk.Label(label_frame, text="Imię      ", font=("Courier", 12))
-        # surname_label = tk.Label(label_frame, text="Nazwisko   ", font=("Courier", 12))
-        # number_label = tk.Label(label_frame, text="Numer tel   ", font=("Courier", 12))
-        # address_label = tk.Label(label_frame, text="Adres", font=("Courier", 12))
-        # name_label.pack(side=tk.LEFT)
-        # surname_label.pack(side=tk.LEFT)
-        # number_label.pack(side=tk.LEFT)
-        # address_label.pack(side=tk.LEFT)
-        # label_frame.pack()
-        # input_frame = tk.Frame(add_customer_window)
-        # name_input = tk.Entry(input_frame)
-        # surname_input = tk.Entry(input_frame)
-        # number_input = tk.Entry(input_frame)
-        # address_input = tk.Entry(input_frame)
-        # name_input.pack(side=tk.LEFT)
-        # surname_input.pack(side=tk.LEFT)
-        # number_input.pack(side=tk.LEFT)
-        # address_input.pack(side=tk.LEFT)
-        # input_frame.pack()
-
         label_selection_frame = tk.Frame(add_customer_window)
         input_selection_frame = tk.Frame(add_customer_window)
         name_selection_label = tk.Label(label_selection_frame, text="Imię      ", font=("Courier", 12))
         surname_selection_label = tk.Label(input_selection_frame, text="Nazwisko   ", font=("Courier", 12))
-        name_selection_input = tk.Entry(input_selection_frame)
-        surname_selection_input = tk.Entry(label_selection_frame)
+        surname_selection_input = tk.Entry(input_selection_frame)
+        name_selection_input = tk.Entry(label_selection_frame)
         name_selection_label.pack(side=tk.LEFT)
         surname_selection_label.pack(side=tk.LEFT)
-        name_selection_input.pack(side=tk.LEFT)
         surname_selection_input.pack(side=tk.LEFT)
+        name_selection_input.pack(side=tk.LEFT)
         label_selection_frame.pack()
         input_selection_frame.pack()
 
         tk.Label(add_customer_window,
-                 text="Tutaj możesz dodać klienta").pack()
+                 text="Tutaj możesz wybrać klienta").pack()
+        print(name_selection_input.get())
         add_customer_button = tk.Button(
             add_customer_window,
             text="Wybierz klienta",
@@ -333,14 +315,99 @@ def main_app():
             height=2,
             bg="white",
             fg="black",
-            command=lambda: select_specific_customer_2(add_customer_window, name_selection_input.get(),
-                                                       surname_selection_input.get())
+            command=lambda: show_specific_customer_by_name(add_customer_window, name_selection_input.get(),
+                                                           surname_selection_input.get())
         )
-        print(select_specific_customer_2(add_customer_window, name_selection_input.get(),
-                                         surname_selection_input.get()))
         add_customer_button.pack()
+
+        # Napisy nad entry fields
+        car_data_label = tk.Label(label_frame, text=values)
+        car_data_label.pack()
+        name_label = tk.Label(label_frame, text="Imię      ", font=("Courier", 12))
+        surname_label = tk.Label(label_frame, text="Nazwisko   ", font=("Courier", 12))
+        number_label = tk.Label(label_frame, text="Numer tel   ", font=("Courier", 12))
+        address_label = tk.Label(label_frame, text="Adres", font=("Courier", 12))
+        name_label.pack(side=tk.LEFT)
+        surname_label.pack(side=tk.LEFT)
+        number_label.pack(side=tk.LEFT)
+        address_label.pack(side=tk.LEFT)
+        label_frame.pack()
+        input_frame = tk.Frame(add_customer_window)
+        name_input = tk.Entry(input_frame)
+        surname_input = tk.Entry(input_frame)
+        number_input = tk.Entry(input_frame)
+        address_input = tk.Entry(input_frame)
+        name_input.pack(side=tk.LEFT)
+        surname_input.pack(side=tk.LEFT)
+        number_input.pack(side=tk.LEFT)
+        address_input.pack(side=tk.LEFT)
+        input_frame.pack()
+
+        add_customer_button = tk.Button(
+            add_customer_window,
+            text="Dodaj klienta",
+            width=12,
+            height=2,
+            bg="white",
+            fg="black",
+            command=lambda: add_customer(add_customer_window, name_input.get(), surname_input.get(), number_input.get(),
+                                         address_input.get())
+        )
+        add_customer_button.pack()
+
         add_return_button(add_customer_window, window)
         window.iconify()
+
+    def show_specific_customer_by_name(add_customer_window, name_selection_input,
+                                       surname_selection_input):
+        result = select_specific_customer_2(name_selection_input,
+                                            surname_selection_input)
+        print("Wyniki:", result)
+        # tk.Label(add_customer_window,
+        #          text=result).pack()
+
+        show_customers_screen = tk.Toplevel(add_customer_window)
+        show_customers_screen.title("Tabela klientów")
+        show_customers_screen.geometry("800x280")
+        my_tree = ttk.Treeview(show_customers_screen)
+        my_tree.pack()
+
+        my_tree['columns'] = ('ID', 'Name', 'Surname',
+                              'Phone Number', 'Address')
+        my_tree.column('#0', width=0, stretch=tk.NO)
+        my_tree.column('ID', anchor=tk.W, width=100)
+        my_tree.column('Name', anchor=tk.W, width=100)
+        my_tree.column('Surname', anchor=tk.CENTER, width=140)
+        my_tree.column('Phone Number', anchor=tk.CENTER, width=140)
+        my_tree.column('Address', anchor=tk.CENTER, width=140)
+
+        my_tree.heading('ID', text='ID', anchor=tk.W)
+        my_tree.heading('Name', text='Name', anchor=tk.W)
+        my_tree.heading('Surname', text='Surname', anchor=tk.W)
+        my_tree.heading('Phone Number', text='Phone Number', anchor=tk.W)
+        my_tree.heading('Address', text='Address', anchor=tk.W)
+
+        counter = 0
+        for record in result:
+            if counter == 10:
+                break
+            my_tree.insert(parent='', index='end', values=record)
+            counter += 1
+
+        def selectItem():
+            curItem = my_tree.focus()
+            print(my_tree.item(curItem)['values'])
+
+        select_button = tk.Button(
+            show_customers_screen,
+            text="Wybierz klienta",
+            width=16,
+            height=2,
+            bg="white",
+            fg="black",
+            command=selectItem
+        )
+        select_button.pack(side=tk.LEFT)
 
     def open_show_customers_window():
         show_customers_window = tk.Toplevel(window)
