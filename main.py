@@ -25,7 +25,7 @@ def register():
     username_entry = tk.Entry(screen1, textvariable=username)
     username_entry.pack()
     tk.Label(screen1, text="Hasło * ").pack()
-    password_entry = tk.Entry(screen1, textvariable=password)
+    password_entry = tk.Entry(screen1, show="*", textvariable=password)
     password_entry.pack()
     tk.Label(screen1, text="").pack()
     tk.Button(screen1, text="Rejestracja", width=10, height=1, command=register_user).pack()
@@ -47,6 +47,7 @@ def register_user():
 
 
 def main_app():
+    global window
     window = tk.Tk()
     window.title("Wypożyczalnia Samochodów")
     tk.Label(window,
@@ -57,8 +58,9 @@ def main_app():
     window.configure(background="white")
 
     def connect_to_database():
+        db_name = 'car_rental'
         connection = mysql.connector.connect(host='localhost',
-                                             database='car_rental',
+                                             database=db_name,
                                              user='root',
                                              password='root',
                                              autocommit=True)
@@ -74,25 +76,22 @@ def main_app():
             return connection, cursor
 
     def close_database_connection(connection):
-        if (connection.is_connected()):
+        if connection.is_connected():
             cursor.close()
             connection.close()
             print("MySQL connection is closed")
 
-    def select_sample_customers_query():
-        cursor.execute('SELECT * FROM tbl_customer LIMIT 5')
-        myresult = cursor.fetchall()
-        columns = ""
-        for x in myresult:
-            for i in x:
-                columns += str(i) + " "
-            columns += '\n'
-        return columns
-
-    def select_sample_vehicles_query(date_selection):
-        cursor.execute(f'''SELECT review.car_review_id, review.car_segment, vehicle.vehicle_type, vehicle.capacity, vehicle.manufactured_year, vehicle.sec_pay_status
-                            FROM tbl_car_review review JOIN tbl_vehicle vehicle ON review.vehicle_id = vehicle .vehicle_id
-                            WHERE vehicle.availability = TRUE;''')
+    def select_sample_vehicles_query():
+        cursor.execute('''SELECT review.car_review_id, 
+                            review.car_segment, 
+                            vehicle.vehicle_type, vehicle.capacity, 
+                            vehicle.manufactured_year, 
+                            vehicle.sec_pay_status
+                            FROM tbl_car_review review 
+                            JOIN tbl_vehicle vehicle 
+                            ON review.vehicle_id = vehicle .vehicle_id
+                            WHERE 
+                            vehicle.availability = TRUE;''')
         myresult = cursor.fetchall()
         outer_list = []
         columns = []
@@ -112,24 +111,17 @@ def main_app():
             "INSERT INTO tbl_customer (name, surname, tel_number, addres) VALUES (%s, %s, %s, %s);",
             (sample_name, sample_surname, sample_number, sample_address))
 
-    def add_rental_query(add_customer_window, show_customers_screen, vehicle, customer, startDate):
+    def add_rental_query(show_customers_screen, vehicle, customer, startDate):
         cursor.execute(
             "INSERT INTO tbl_rental (vehicle_id, customer_id, rental_start_date) VALUES (%s, %s, %s);",
             (vehicle, customer, startDate))
+        cursor.execute(
+            f"UPDATE tbl_vehicle SET availability = FALSE WHERE vehicle_id = {vehicle};")
         show_customers_screen.destroy()
+        window.deiconify()
 
     def select_specific_customer(name, surname):
-        cursor.execute('SELECT * FROM tbl_customer WHERE name = (%s) and surname = (%s)', (name, surname))
-        myresult = cursor.fetchall()
-        columns = ""
-        for x in myresult:
-            for i in x:
-                columns += str(i) + " "
-            columns += '\n'
-        return columns
-
-    def select_specific_customer_2(name, surname):
-        cursor.execute(f'''SELECT * FROM tbl_customer WHERE name = "{name}" AND surname = "{surname}";''')
+        cursor.execute(f'''SELECT * FROM tbl_customer WHERE name = '{name}' AND surname = '{surname}';''')
         myresult = cursor.fetchall()
         outer_list = []
         columns = []
@@ -144,32 +136,27 @@ def main_app():
                     counter = 0
         return outer_list
 
-    def hide_main_window(window, main_window):
+    def hide_main_window(second_window, main_window):
         main_window.deiconify()
-        window.destroy()
+        second_window.destroy()
 
-    def add_return_button(window, main_window):
+    def add_return_button(return_window, main_window):
         return_button = tk.Button(
-            window,
+            return_window,
             text="Powrót",
             width=9,
             height=2,
             bg="white",
             fg="black",
-            command=lambda: hide_main_window(window, main_window)
+            command=lambda: hide_main_window(return_window, main_window)
         )
         return_button.place(x=520, y=355)
-
-    def show_customers(show_customers_window):
-        result = str(select_sample_customers_query())
-        tk.Label(show_customers_window,
-                 text=result).pack()
 
     def show_cars(show_cars_window, date_selection):
         show_cars_screen = tk.Toplevel(show_cars_window)
         show_cars_screen.title("Tabela samochodów")
         show_cars_screen.geometry("800x280")
-        result = select_sample_vehicles_query(date_selection)
+        result = select_sample_vehicles_query()
         my_tree = ttk.Treeview(show_cars_screen)
         my_tree.pack()
 
@@ -230,7 +217,7 @@ def main_app():
             height=2,
             bg="white",
             fg="black",
-            command=lambda: open_add_customer_window(show_cars_window, selectItem())
+            command=lambda: open_add_customer_window(date_selection, show_cars_window, selectItem())
         )
         select_button.pack(side=tk.LEFT)
 
@@ -240,7 +227,7 @@ def main_app():
 
         new_counter = 0
         for record in result:
-            if new_counter >= counter and new_counter < counter + 10:
+            if counter <= new_counter < counter + 10:
                 my_tree.insert(parent='', index='end', values=record)
             new_counter += 1
 
@@ -250,24 +237,22 @@ def main_app():
 
         new_counter = counter
         for record in result:
-            if new_counter <= counter and new_counter > counter - 10:
+            if counter >= new_counter > counter - 10:
                 my_tree.insert(parent='', index='end', values=record)
             new_counter -= 1
 
     def add_customer(add_customers_window, name, surname, number, address):
 
         add_customers_query(name, surname, number, address)
-        # result = str(select_specific_customer(name))
-        # print(result)
-        # tk.Label(add_customers_window,
-        #          text=result).pack()
-
-    def select_customer(add_customers_window, name, surname):
-
-        result = str(select_specific_customer(name, surname))
-        print(result)
         tk.Label(add_customers_window,
-                 text=result).pack()
+                 text='Dodano klienta!').pack()
+
+    # def select_customer(add_customers_window, name, surname):
+    #
+    #     result = str(select_specific_customer(name, surname))
+    #     print(result)
+    #     tk.Label(add_customers_window,
+    #              text=result).pack()
 
     def open_rent_car_window(date_selection):
         rent_car_window = tk.Toplevel(window)
@@ -275,8 +260,6 @@ def main_app():
         rent_car_window.geometry(WINDOW_SIZE)
         tk.Label(rent_car_window,
                  text="Tutaj możesz wypożyczyć samochód").pack()
-
-        date_selection = str(date_selection)[:4]
 
         show_surnames_button = tk.Button(
             rent_car_window,
@@ -292,10 +275,10 @@ def main_app():
         add_return_button(rent_car_window, window)
         window.iconify()
 
-    def open_add_customer_window(show_cars_window, values):
+    def open_add_customer_window(date_selection, show_cars_window, values):
         add_customer_window = tk.Toplevel(window)
         add_customer_window.title("Dodaj Klienta")
-        add_customer_window.geometry((WINDOW_SIZE))
+        add_customer_window.geometry(WINDOW_SIZE)
         label_frame = tk.Frame(add_customer_window)
 
         label_selection_frame = tk.Frame(add_customer_window)
@@ -321,7 +304,8 @@ def main_app():
             height=2,
             bg="white",
             fg="black",
-            command=lambda: show_specific_customer_by_name(values, add_customer_window, name_selection_input.get(),
+            command=lambda: show_specific_customer_by_name(date_selection, values, add_customer_window,
+                                                           name_selection_input.get(),
                                                            surname_selection_input.get())
         )
         add_customer_button.pack()
@@ -365,13 +349,10 @@ def main_app():
         window.iconify()
         show_cars_window.destroy()
 
-    def show_specific_customer_by_name(vehicle_data, add_customer_window, name_selection_input,
+    def show_specific_customer_by_name(date_selection, vehicle_data, add_customer_window, name_selection_input,
                                        surname_selection_input):
-        result = select_specific_customer_2(name_selection_input,
-                                            surname_selection_input)
-        #print("Wyniki:", result)
-        # tk.Label(add_customer_window,
-        #          text=result).pack()
+        result = select_specific_customer(name_selection_input,
+                                          surname_selection_input)
 
         show_customers_screen = tk.Toplevel(add_customer_window)
         show_customers_screen.title("Tabela klientów")
@@ -412,99 +393,59 @@ def main_app():
             height=2,
             bg="white",
             fg="black",
-            command=lambda: add_rental_query(add_customer_window, show_customers_screen, vehicle_data[0], selectItem()[0], '2022-05-05')
+            command=lambda: add_rental_query(add_customer_window, vehicle_data[0],
+                                             selectItem()[0], str(date_selection))
         )
         select_button.pack(side=tk.LEFT)
 
-
     def open_show_customers_window():
         show_customers_window = tk.Toplevel(window)
-        show_customers_window.title("Wyświetl klientów")
+        show_customers_window.title("Zwróć pojazd")
         show_customers_window.geometry(WINDOW_SIZE)
         tk.Label(show_customers_window,
-                 text="Tutaj możesz wyświetlić klientów").pack()
+                 text="Tutaj możesz zwrócić pojazd").pack()
         show_surnames_button = tk.Button(
             show_customers_window,
-            text="Pokaż klientów",
+            text="Zwróć pojazd",
             width=12,
             height=2,
             bg="white",
             fg="black",
-            command=lambda: show_customers(show_customers_window)
+            command=lambda: open_return_car_date(show_customers_window)
         )
         show_surnames_button.pack()
         add_return_button(show_customers_window, window)
         window.iconify()
 
-    def open_reserve_car_window():
-        show_reserve_car_window = tk.Toplevel(window)
-        show_reserve_car_window.title("Zarezerwuj samochód")
-        show_reserve_car_window.geometry(WINDOW_SIZE)
-        tk.Label(show_reserve_car_window,
-                 text="Tutaj możesz zarezerwować samochód").pack()
-
-        show_reserve_car_button = tk.Button(
-            show_reserve_car_window,
-            text="Zarezerwuj samochód",
-            width=18,
-            height=2,
-            bg="white",
-            fg="black",
-        )
-        show_reserve_car_button.pack()
-        add_return_button(show_reserve_car_window, window)
-        window.iconify()
+    # def open_reserve_car_window():
+    #     show_reserve_car_window = tk.Toplevel(window)
+    #     show_reserve_car_window.title("Zarezerwuj samochód")
+    #     show_reserve_car_window.geometry(WINDOW_SIZE)
+    #     tk.Label(show_reserve_car_window,
+    #              text="Tutaj możesz zarezerwować samochód").pack()
+    #
+    #     show_reserve_car_button = tk.Button(
+    #         show_reserve_car_window,
+    #         text="Zarezerwuj samochód",
+    #         width=18,
+    #         height=2,
+    #         bg="white",
+    #         fg="black",
+    #     )
+    #     show_reserve_car_button.pack()
+    #     add_return_button(show_reserve_car_window, window)
+    #     window.iconify()
 
     def open_select_date_window():
         date_selection = return_date_selection()
         open_rent_car_window(date_selection)
 
-    def return_date_selection():
-        def cal_done():
-            top.withdraw()
-            root.quit()
+    def open_return_car_date(show_customers_window):
+        date_selection = return_date_selection()
+        open_return_car_window(show_customers_window, date_selection)
 
-        root = tk.Tk()
-        root.withdraw()  # keep the root window from appearing
-
-        top = tk.Toplevel(root)
-
-        cal = Calendar(top,
-                       font="Arial 14", selectmode='day',
-                       cursor="hand1")
-        cal.pack(fill="both", expand=True)
-        ttk.Button(top, text="ok", command=cal_done).pack()
-
-        selected_date = None
-        root.mainloop()
-        return cal.selection_get()
-
-    # def show_reservation(show_check_reservations_window):
-    #     result = str(select_rented_query())
-    #     tk.Label(show_check_reservations_window,
-    #              text=result).pack()
-
-    def select_rented_query():
-        cursor.execute(f'''SELECT customer.customer_id, customer.name, customer.surname, vehicle.vehicle_id, vehicle.vehicle_type, vehicle.capacity, rental.rental_start_date
-                            FROM tbl_vehicle vehicle JOIN tbl_rental rental ON vehicle.vehicle_id = rental.vehicle_id
-                            JOIN tbl_customer customer ON customer.customer_id = rental.customer_id
-                            ORDER BY customer.customer_id;''')
-        myresult = cursor.fetchall()
-        outer_list = []
-        columns = []
-        counter = 0
-        for x in myresult:
-            for i in x:
-                columns.append(str(i))
-                counter += 1
-                if counter == 7:
-                    outer_list.append(columns)
-                    columns = []
-                    counter = 0
-        return outer_list
-
-    def show_rented_cars(show_cars_window):
-        show_cars_screen = tk.Toplevel(show_cars_window)
+    def open_return_car_window(show_customers_window, date_selection):
+        show_cars_screen = tk.Toplevel(show_customers_window)
         show_cars_screen.title("Tabela wynajmu")
         show_cars_screen.geometry("1000x280")
         result = select_rented_query()
@@ -559,11 +500,145 @@ def main_app():
         )
         next_button.pack(side=tk.LEFT)
 
+        def selectItem():
+            curItem = my_tree.focus()
+            return my_tree.item(curItem)['values']
+
+        select_button = tk.Button(
+            show_cars_screen,
+            text="Wybierz samochód",
+            width=16,
+            height=2,
+            bg="white",
+            fg="black",
+            command=lambda: add_return_query(date_selection, show_cars_screen, selectItem())
+        )
+        select_button.pack(side=tk.LEFT)
+
+    def add_return_query(date_selection, show_customers_screen, vehicle):
+        vehicle = vehicle[3]
+        cursor.execute(
+            f"UPDATE tbl_rental SET rental_return_date = '{date_selection}' WHERE vehicle_id = {vehicle};")
+        cursor.execute(
+            f"UPDATE tbl_vehicle SET availability = TRUE WHERE vehicle_id = {vehicle};")
+        show_customers_screen.destroy()
+
+    def return_date_selection():
+        def cal_done():
+            top.withdraw()
+            root.quit()
+
+        root = tk.Tk()
+        root.withdraw()  # keep the root window from appearing
+
+        top = tk.Toplevel(root)
+
+        cal = Calendar(top,
+                       font="Arial 14", selectmode='day',
+                       cursor="hand1")
+        cal.pack(fill="both", expand=True)
+        ttk.Button(top, text="ok", command=cal_done).pack()
+
+        selected_date = None
+        root.mainloop()
+        return cal.selection_get()
+
+    # def show_reservation(show_check_reservations_window):
+    #     result = str(select_rented_query())
+    #     tk.Label(show_check_reservations_window,
+    #              text=result).pack()
+
+    def select_rented_query():
+        cursor.execute(f'''SELECT customer.customer_id, customer.name, 
+                            customer.surname, 
+                            vehicle.vehicle_id, 
+                            vehicle.vehicle_type, 
+                            vehicle.capacity, 
+                            rental.rental_start_date, 
+                            rental_return_date
+                            FROM tbl_vehicle vehicle 
+                            JOIN tbl_rental rental 
+                            ON vehicle.vehicle_id = rental.vehicle_id
+                            JOIN tbl_customer customer 
+                            ON customer.customer_id = rental.customer_id
+                            ORDER BY rental_id DESC;''')
+        myresult = cursor.fetchall()
+        outer_list = []
+        columns = []
+        counter = 0
+        for x in myresult:
+            for i in x:
+                columns.append(str(i))
+                counter += 1
+                if counter == 8:
+                    outer_list.append(columns)
+                    columns = []
+                    counter = 0
+        return outer_list
+
+    def show_rented_cars(show_cars_window):
+        show_cars_screen = tk.Toplevel(show_cars_window)
+        show_cars_screen.title("Tabela wynajmu")
+        show_cars_screen.geometry("1080x280")
+        result = select_rented_query()
+        my_tree = ttk.Treeview(show_cars_screen)
+        my_tree.pack()
+
+        my_tree['columns'] = ('ID', 'Car Segment', 'Vehicle Type',
+                              'Capacity', 'Manufactured Year', 'Sec Pay Status', 'Rental Date', 'Rental Return')
+        my_tree.column('#0', width=0, stretch=tk.NO)
+        my_tree.column('ID', anchor=tk.W, width=100)
+        my_tree.column('Car Segment', anchor=tk.W, width=100)
+        my_tree.column('Vehicle Type', anchor=tk.CENTER, width=140)
+        my_tree.column('Capacity', anchor=tk.CENTER, width=140)
+        my_tree.column('Manufactured Year', anchor=tk.CENTER, width=140)
+        my_tree.column('Sec Pay Status', anchor=tk.CENTER, width=140)
+        my_tree.column('Rental Date', anchor=tk.CENTER, width=140)
+        my_tree.column('Rental Return', anchor=tk.CENTER, width=140)
+
+        my_tree.heading('ID', text='ID Klienta', anchor=tk.W)
+        my_tree.heading('Car Segment', text='Imię', anchor=tk.W)
+        my_tree.heading('Vehicle Type', text='Nazwisko', anchor=tk.W)
+        my_tree.heading('Capacity', text='ID Pojazdu', anchor=tk.W)
+        my_tree.heading('Manufactured Year', text='Typ pojazdu', anchor=tk.W)
+        my_tree.heading('Sec Pay Status', text='Pojemność', anchor=tk.W)
+        my_tree.heading('Rental Date', text='Data wynajmu', anchor=tk.W)
+        my_tree.heading('Rental Return', text='Data zwrotu', anchor=tk.W)
+
+        counter = 0
+        for record in result:
+            if counter == 10:
+                break
+            my_tree.insert(parent='', index='end', values=record)
+            counter += 1
+
+        back_button = tk.Button(
+            show_cars_screen,
+            text="Poprzednia strona",
+            width=16,
+            height=2,
+            bg="white",
+            fg="black",
+            command=lambda: show_previous_cars_rental(my_tree, counter, result)
+        )
+        back_button.pack(side=tk.LEFT)
+
+        next_button = tk.Button(
+            show_cars_screen,
+            text="Następna strona",
+            width=16,
+            height=2,
+            bg="white",
+            fg="black",
+            command=lambda: show_next_cars_rental(my_tree, counter, result)
+        )
+        next_button.pack(side=tk.LEFT)
+
     def show_next_cars_rental(my_tree, counter, result):
         my_tree.delete(*my_tree.get_children())
         new_counter = 0
         for record in result:
-            if new_counter >= counter and new_counter < counter + 10:
+            if counter <= new_counter < counter + 10:
                 my_tree.insert(parent='', index='end', values=record)
             new_counter += 1
 
@@ -571,7 +646,7 @@ def main_app():
         my_tree.delete(*my_tree.get_children())
         new_counter = counter
         for record in result:
-            if new_counter <= counter and new_counter > counter - 10:
+            if counter >= new_counter > counter - 10:
                 my_tree.insert(parent='', index='end', values=record)
             new_counter -= 1
 
@@ -662,7 +737,7 @@ def main_app():
     close_database_connection(conn)
 
 
-def log_user():
+def log_user(password_processing, username_processing):
     username_info = username.get()
     password_info = password.get()
     try:
@@ -674,11 +749,11 @@ def log_user():
                 screen.destroy()
                 main_app()
             else:
-                password_processing = tk.Label(screen1, text='Błędne hasło')
-                password_processing.pack()
-    except:
-        username_processing = tk.Label(screen1, text='Błędna nazwa użytkownika')
-        username_processing.pack()
+                username_processing.config(text="")
+                password_processing.config(text='Błędne hasło')
+    except FileNotFoundError:
+        password_processing.config(text="")
+        username_processing.config(text='Błędna nazwa użytkownika')
 
 
 def login():
@@ -700,10 +775,14 @@ def login():
     username_entry = tk.Entry(screen1, textvariable=username)
     username_entry.pack()
     tk.Label(screen1, text="Hasło * ").pack()
-    password_entry = tk.Entry(screen1, textvariable=password)
+    password_entry = tk.Entry(screen1, show="*", textvariable=password)
     password_entry.pack()
-    tk.Label(screen1, text="").pack()
-    tk.Button(screen1, text="Logowanie", width=10, height=1, command=log_user).pack()
+    password_processing = tk.Label(screen1, text="")
+    password_processing.pack()
+    username_processing = tk.Label(screen1, text="")
+    username_processing.pack()
+    tk.Button(screen1, text="Logowanie", width=10, height=1,
+              command=lambda: log_user(password_processing, username_processing)).pack()
 
 
 def main_screen():
