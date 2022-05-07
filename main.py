@@ -5,6 +5,16 @@ from tkcalendar import Calendar
 
 WINDOW_SIZE = "600x400"
 
+# todo
+# wyświetlić okienko z wyliczoną kwotą za wynajem pojazdu przy oddawaniu pojazdu
+# SELECT DATEDIFF(rental_return_date, rental_start_date) * 60 * (1.2 * ASCII(tbl_vehicle.vehicle_type) / 100) FROM tbl_rental
+# JOIN tbl_vehicle
+# ON tbl_rental.vehicle_id = tbl_vehicle.vehicle_id
+# WHERE rental_id = 1;
+# dołożyć tworzenie bazy danych, tabel i wartości na skrypcie Rafała
+# stworzyć z tego aplikację .exe i sprawdzić jej działanie
+# spakować to do paczki i wysłać do testów
+
 
 def register():
     global screen1
