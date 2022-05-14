@@ -1,19 +1,10 @@
 import tkinter as tk
 import tkinter.ttk as ttk
+from tkinter import messagebox
 import mysql.connector
 from tkcalendar import Calendar
 
 WINDOW_SIZE = "600x400"
-
-# todo
-# wyświetlić okienko z wyliczoną kwotą za wynajem pojazdu przy oddawaniu pojazdu
-# SELECT DATEDIFF(rental_return_date, rental_start_date) * 60 * (1.2 * ASCII(tbl_vehicle.vehicle_type) / 100) FROM tbl_rental
-# JOIN tbl_vehicle
-# ON tbl_rental.vehicle_id = tbl_vehicle.vehicle_id
-# WHERE rental_id = 1;
-# dołożyć tworzenie bazy danych, tabel i wartości na skrypcie Rafała
-# stworzyć z tego aplikację .exe i sprawdzić jej działanie
-# spakować to do paczki i wysłać do testów
 
 
 def register():
@@ -68,22 +59,51 @@ def main_app():
     window.configure(background="white")
 
     def connect_to_database():
-        db_name = 'car_rental'
-        connection = mysql.connector.connect(host='localhost',
-                                             database=db_name,
-                                             user='root',
-                                             password='root',
-                                             autocommit=True)
-        if connection.is_connected():
-            global cursor
-            db_Info = connection.get_server_info()
-            print("Connected to MySQL Server version ", db_Info)
-            cursor = connection.cursor()
-            cursor.execute("select database();")
-            record = cursor.fetchone()
-            print("You're connected to database: ", record)
+        global cursor
+        try:
+            connection = mysql.connector.connect(host='localhost',
+                                                 database='car_rental',
+                                                 user='root',
+                                                 password='root',
+                                                 autocommit=True)
+            if connection.is_connected():
+                db_Info = connection.get_server_info()
+                print("Connected to MySQL Server version ", db_Info)
+                cursor = connection.cursor()
 
-            return connection, cursor
+        except mysql.connector.errors.ProgrammingError:
+            connection = mysql.connector.connect(host='localhost',
+                                                 database='sys',
+                                                 user='root',
+                                                 password='root',
+                                                 autocommit=True)
+            if connection.is_connected():
+
+                db_Info = connection.get_server_info()
+                print("Connected to MySQL Server version ", db_Info)
+                cursor = connection.cursor()
+
+                def executeScriptsFromFile(filename):
+                    fd = open(filename, 'r')
+                    sqlFile = fd.read()
+                    fd.close()
+                    sqlCommands = sqlFile.split(';')
+
+                    for command in sqlCommands:
+                        try:
+                            if command.strip() != '':
+                                cursor.execute(command)
+                        except IOError as msg:
+                            print("Command skipped: ", msg)
+
+                executeScriptsFromFile('C:/Users/admin/Desktop/TABProjekt/InitDatabase.sql')
+                connection.commit()
+
+        cursor.execute("select database();")
+        record = cursor.fetchone()
+        print("You're connected to database: ", record)
+
+        return connection, cursor
 
     def close_database_connection(connection):
         if connection.is_connected():
@@ -162,7 +182,7 @@ def main_app():
         )
         return_button.place(x=520, y=355)
 
-    def show_cars(show_cars_window, date_selection):
+    def show_cars(show_cars_window, date_selection, select_car_bool):
         show_cars_screen = tk.Toplevel(show_cars_window)
         show_cars_screen.title("Tabela samochodów")
         show_cars_screen.geometry("800x280")
@@ -215,21 +235,21 @@ def main_app():
             command=lambda: show_next_cars(my_tree, counter, result)
         )
         next_button.pack(side=tk.LEFT)
+        if select_car_bool:
+            def selectItem():
+                curItem = my_tree.focus()
+                return my_tree.item(curItem)['values']
 
-        def selectItem():
-            curItem = my_tree.focus()
-            return my_tree.item(curItem)['values']
-
-        select_button = tk.Button(
-            show_cars_screen,
-            text="Wybierz samochód",
-            width=16,
-            height=2,
-            bg="white",
-            fg="black",
-            command=lambda: open_add_customer_window(date_selection, show_cars_window, selectItem())
-        )
-        select_button.pack(side=tk.LEFT)
+            select_button = tk.Button(
+                show_cars_screen,
+                text="Wybierz samochód",
+                width=16,
+                height=2,
+                bg="white",
+                fg="black",
+                command=lambda: open_add_customer_window(date_selection, show_cars_window, selectItem())
+            )
+            select_button.pack(side=tk.LEFT)
 
     def show_next_cars(my_tree, counter, result):
 
@@ -278,7 +298,7 @@ def main_app():
             height=2,
             bg="white",
             fg="black",
-            command=lambda: show_cars(rent_car_window, date_selection)
+            command=lambda: show_cars(rent_car_window, date_selection, True)
         )
         show_surnames_button.pack()
 
@@ -458,7 +478,7 @@ def main_app():
         show_cars_screen = tk.Toplevel(show_customers_window)
         show_cars_screen.title("Tabela wynajmu")
         show_cars_screen.geometry("1000x280")
-        result = select_rented_query()
+        result = select_rented_query_not_returned()
         my_tree = ttk.Treeview(show_cars_screen)
         my_tree.pack()
 
@@ -525,12 +545,42 @@ def main_app():
         )
         select_button.pack(side=tk.LEFT)
 
+        cancel_button = tk.Button(
+            show_cars_screen,
+            text="Anuluj rezerwację",
+            width=16,
+            height=2,
+            bg="white",
+            fg="black",
+            command=lambda: cancel_reservation_query(show_cars_screen, selectItem())
+        )
+        cancel_button.pack(side=tk.LEFT)
+
+    def cancel_reservation_query(show_customers_screen, vehicle):
+        vehicle = vehicle[3]
+        cursor.execute(
+            f"UPDATE tbl_rental SET rental_return_date = '2000-01-01' WHERE vehicle_id = {vehicle};")
+        cursor.execute(
+            f"UPDATE tbl_vehicle SET availability = TRUE WHERE vehicle_id = {vehicle};")
+
+        messagebox.showinfo(title='Informacja', message=f'Rezerwacja została anulowana')
+
+        show_customers_screen.destroy()
+
     def add_return_query(date_selection, show_customers_screen, vehicle):
         vehicle = vehicle[3]
         cursor.execute(
             f"UPDATE tbl_rental SET rental_return_date = '{date_selection}' WHERE vehicle_id = {vehicle};")
         cursor.execute(
             f"UPDATE tbl_vehicle SET availability = TRUE WHERE vehicle_id = {vehicle};")
+
+        cursor.execute(f'''SELECT DATEDIFF(rental_return_date, rental_start_date) * 60 * (1.2 * ASCII(tbl_vehicle.vehicle_type) / 100) FROM tbl_rental
+                            JOIN tbl_vehicle
+                            ON tbl_rental.vehicle_id = tbl_vehicle.vehicle_id
+                            WHERE rental_id = {vehicle};''')
+        myresult = cursor.fetchall()
+        messagebox.showinfo(title='Zapłata', message=f'Musisz zapłacić {round(myresult[0][0], 2)} zł.')
+
         show_customers_screen.destroy()
 
     def return_date_selection():
@@ -571,6 +621,35 @@ def main_app():
                             ON vehicle.vehicle_id = rental.vehicle_id
                             JOIN tbl_customer customer 
                             ON customer.customer_id = rental.customer_id
+                            ORDER BY rental_id DESC;''')
+        myresult = cursor.fetchall()
+        outer_list = []
+        columns = []
+        counter = 0
+        for x in myresult:
+            for i in x:
+                columns.append(str(i))
+                counter += 1
+                if counter == 8:
+                    outer_list.append(columns)
+                    columns = []
+                    counter = 0
+        return outer_list
+
+    def select_rented_query_not_returned():
+        cursor.execute(f'''SELECT customer.customer_id, customer.name, 
+                            customer.surname, 
+                            vehicle.vehicle_id, 
+                            vehicle.vehicle_type, 
+                            vehicle.capacity, 
+                            rental.rental_start_date, 
+                            rental_return_date
+                            FROM tbl_vehicle vehicle 
+                            JOIN tbl_rental rental 
+                            ON vehicle.vehicle_id = rental.vehicle_id
+                            JOIN tbl_customer customer 
+                            ON customer.customer_id = rental.customer_id
+                            WHERE rental_return_date IS NULL
                             ORDER BY rental_id DESC;''')
         myresult = cursor.fetchall()
         outer_list = []
@@ -688,8 +767,8 @@ def main_app():
             width=22,
             height=5,
             bg="white",
-            fg="black"
-            # command=open_add_customer_window
+            fg="black",
+            command=lambda: show_cars(window, '01-01-2010', False)
         )
 
         rent_car_button = tk.Button(
@@ -700,7 +779,6 @@ def main_app():
             bg="white",
             fg="black",
             command=open_select_date_window
-            # command=open_rent_car_window
         )
 
         return_car_button = tk.Button(
