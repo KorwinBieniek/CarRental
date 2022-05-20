@@ -3,6 +3,7 @@ import tkinter.ttk as ttk
 from tkinter import messagebox
 import mysql.connector
 from tkcalendar import Calendar
+from fpdf import FPDF
 
 WINDOW_SIZE = "600x400"
 
@@ -55,7 +56,7 @@ def main_app():
              text="Wypożycz swój wymarzony samochód").pack()
     img = tk.PhotoImage(file='test_car.png')
     tk.Label(window, image=img).pack()
-    window.geometry("660x300")
+    window.geometry("660x360")
     window.configure(background="white")
 
     def connect_to_database():
@@ -141,10 +142,10 @@ def main_app():
             "INSERT INTO tbl_customer (name, surname, tel_number, addres) VALUES (%s, %s, %s, %s);",
             (sample_name, sample_surname, sample_number, sample_address))
 
-    def add_rental_query(show_customers_screen, vehicle, customer, startDate):
+    def add_rental_query(show_customers_screen, vehicle, customer, startDate, rdate_selection):
         cursor.execute(
-            "INSERT INTO tbl_rental (vehicle_id, customer_id, rental_start_date) VALUES (%s, %s, %s);",
-            (vehicle, customer, startDate))
+            "INSERT INTO tbl_rental (vehicle_id, customer_id, rental_start_date, rental_return_date) VALUES (%s, %s, %s, %s);",
+            (vehicle, customer, startDate, rdate_selection))
         cursor.execute(
             f"UPDATE tbl_vehicle SET availability = FALSE WHERE vehicle_id = {vehicle};")
         show_customers_screen.destroy()
@@ -182,7 +183,7 @@ def main_app():
         )
         return_button.place(x=520, y=355)
 
-    def show_cars(show_cars_window, date_selection, select_car_bool):
+    def show_cars(show_cars_window, date_selection, rdate_selection, select_car_bool):
         show_cars_screen = tk.Toplevel(show_cars_window)
         show_cars_screen.title("Tabela samochodów")
         show_cars_screen.geometry("800x280")
@@ -247,7 +248,7 @@ def main_app():
                 height=2,
                 bg="white",
                 fg="black",
-                command=lambda: open_add_customer_window(date_selection, show_cars_window, selectItem())
+                command=lambda: open_add_customer_window(date_selection, rdate_selection, show_cars_window, selectItem())
             )
             select_button.pack(side=tk.LEFT)
 
@@ -284,7 +285,7 @@ def main_app():
     #     tk.Label(add_customers_window,
     #              text=result).pack()
 
-    def open_rent_car_window(date_selection):
+    def open_rent_car_window(date_selection, rdate_selection):
         rent_car_window = tk.Toplevel(window)
         rent_car_window.title("Wypożycz Samochód")
         rent_car_window.geometry(WINDOW_SIZE)
@@ -298,14 +299,14 @@ def main_app():
             height=2,
             bg="white",
             fg="black",
-            command=lambda: show_cars(rent_car_window, date_selection, True)
+            command=lambda: show_cars(rent_car_window, date_selection, rdate_selection, True)
         )
         show_surnames_button.pack()
 
         add_return_button(rent_car_window, window)
         window.iconify()
 
-    def open_add_customer_window(date_selection, show_cars_window, values):
+    def open_add_customer_window(date_selection, rdate_selection, show_cars_window, values):
         add_customer_window = tk.Toplevel(window)
         add_customer_window.title("Dodaj Klienta")
         add_customer_window.geometry(WINDOW_SIZE)
@@ -334,7 +335,7 @@ def main_app():
             height=2,
             bg="white",
             fg="black",
-            command=lambda: show_specific_customer_by_name(date_selection, values, add_customer_window,
+            command=lambda: show_specific_customer_by_name(date_selection, rdate_selection, values, add_customer_window,
                                                            name_selection_input.get(),
                                                            surname_selection_input.get())
         )
@@ -379,7 +380,7 @@ def main_app():
         window.iconify()
         show_cars_window.destroy()
 
-    def show_specific_customer_by_name(date_selection, vehicle_data, add_customer_window, name_selection_input,
+    def show_specific_customer_by_name(date_selection, rdate_selection, vehicle_data, add_customer_window, name_selection_input,
                                        surname_selection_input):
         result = select_specific_customer(name_selection_input,
                                           surname_selection_input)
@@ -424,7 +425,7 @@ def main_app():
             bg="white",
             fg="black",
             command=lambda: add_rental_query(add_customer_window, vehicle_data[0],
-                                             selectItem()[0], str(date_selection))
+                                             selectItem()[0], str(date_selection), str(rdate_selection))
         )
         select_button.pack(side=tk.LEFT)
 
@@ -468,7 +469,8 @@ def main_app():
 
     def open_select_date_window():
         date_selection = return_date_selection()
-        open_rent_car_window(date_selection)
+        rdate_selection = return_date_selection()
+        open_rent_car_window(date_selection, rdate_selection)
 
     def open_return_car_date(show_customers_window):
         date_selection = return_date_selection()
@@ -577,7 +579,7 @@ def main_app():
         cursor.execute(f'''SELECT DATEDIFF(rental_return_date, rental_start_date) * 60 * (1.2 * ASCII(tbl_vehicle.vehicle_type) / 100) FROM tbl_rental
                             JOIN tbl_vehicle
                             ON tbl_rental.vehicle_id = tbl_vehicle.vehicle_id
-                            WHERE rental_id = {vehicle};''')
+                            WHERE tbl_rental.vehicle_id = {vehicle};''')
         myresult = cursor.fetchall()
         messagebox.showinfo(title='Zapłata', message=f'Musisz zapłacić {round(myresult[0][0], 2)} zł.')
 
@@ -589,7 +591,8 @@ def main_app():
             root.quit()
 
         root = tk.Tk()
-        root.withdraw()  # keep the root window from appearing
+        root.title('Wybierz datę')
+        root.withdraw()
 
         top = tk.Toplevel(root)
 
@@ -597,7 +600,7 @@ def main_app():
                        font="Arial 14", selectmode='day',
                        cursor="hand1")
         cal.pack(fill="both", expand=True)
-        ttk.Button(top, text="ok", command=cal_done).pack()
+        ttk.Button(top, text="Wybierz datę", command=cal_done).pack()
 
         selected_date = None
         root.mainloop()
@@ -649,7 +652,6 @@ def main_app():
                             ON vehicle.vehicle_id = rental.vehicle_id
                             JOIN tbl_customer customer 
                             ON customer.customer_id = rental.customer_id
-                            WHERE rental_return_date IS NULL
                             ORDER BY rental_id DESC;''')
         myresult = cursor.fetchall()
         outer_list = []
@@ -758,13 +760,49 @@ def main_app():
         add_return_button(show_check_reservations_window, window)
         window.iconify()
 
+    def print_rental():
+        content = select_rented_query()
+        with open("reservation.txt", "w") as file:
+            for reservation in content:
+                for element in reservation:
+                    file.write(element + ";")
+                file.write("\n")
+        from fpdf import FPDF
+        pdf = FPDF()
+
+        pdf.add_page()
+        pdf.set_font("Arial", size=20)
+        pdf.cell(200, 10, txt='Reservation Raport\n', ln=1, align='C')
+
+        pdf.set_font("Arial", size=14)
+        pdf.cell(200, 10, txt='Rental ID | Customer ID | Vehicle ID | Booking ID | Rental Start Date | Rental Return Date\n', ln=1, align='L')
+
+
+        file = open("reservation.txt", "r")
+
+        for g in file:
+            pdf.cell(200, 10, txt=g + "\n", ln=1, align='L')
+
+        pdf.output("Reservation_raport.pdf")
+
+
     def create_main():
         button_frame = tk.Frame()
+
+        generate_raport_button = tk.Button(
+            master=button_frame,
+            text="Generuj raport",
+            width=17,
+            height=5,
+            bg="white",
+            fg="black",
+            command=lambda: print_rental()
+        )
 
         add_customer_button = tk.Button(
             master=button_frame,
             text="Katalog pojazdów",
-            width=22,
+            width=17,
             height=5,
             bg="white",
             fg="black",
@@ -774,7 +812,7 @@ def main_app():
         rent_car_button = tk.Button(
             master=button_frame,
             text="Wypożycz samochód",
-            width=22,
+            width=17,
             height=5,
             bg="white",
             fg="black",
@@ -784,7 +822,7 @@ def main_app():
         return_car_button = tk.Button(
             master=button_frame,
             text="Zwróć samochód",
-            width=22,
+            width=17,
             height=5,
             bg="white",
             fg="black",
@@ -804,7 +842,7 @@ def main_app():
         check_reservations_button = tk.Button(
             master=button_frame,
             text="Sprawdź rezerwacje",
-            width=22,
+            width=17,
             height=5,
             bg="white",
             fg="black",
@@ -816,8 +854,11 @@ def main_app():
         return_car_button.pack(side=tk.LEFT)
         # reserve_car_button.pack(side=tk.LEFT)
         check_reservations_button.pack(side=tk.LEFT)
+        generate_raport_button.pack(side=tk.LEFT)
+        #show_help_button.pack(side=tk.RIGHT)
 
         button_frame.pack(fill=tk.X)
+        #help_frame.pack(fill=tk.Y)
 
     conn, cursor = connect_to_database()
     create_main()
@@ -872,6 +913,34 @@ def login():
     tk.Button(screen1, text="Logowanie", width=10, height=1,
               command=lambda: log_user(password_processing, username_processing)).pack()
 
+def show_help(window):
+    help_window = tk.Toplevel(window)
+    help_window.title("Pomoc")
+    help_window.geometry("800x400")
+
+    firstLabel = tk.Label(help_window, text="""Instrukcja użytkownika
+
+Aby skorzystać z aplikacji wpisz swój login i hasło, jeżeli jeszcze nie posiadasz konta - zarejestruj się.
+Aby sprawdzić pojazdy dostępne w bazie kliknij "Katalog pojazdów"
+Aby sprawdzić obecne/aktualne rezerwację kliknij "Sprawdź rezerwacje"
+Aby wypożyczyć samochód klientowi wybierz "Wypożycz samochód", następnie wybierz datę od której będzie wypożyczony pojazd, 
+po wybraniu daty pojawia się okienko z przyciskiem "Pokaż pojazdy", 
+po kliknięciu w przycisk wybieramy interesujący klienta samochód zaznaczając go myszką, 
+a następnie klikamy "Wybierz samochód", wyświetli się nam panel danych klienta, 
+jeżeli klient istnieje w bazie to możemy wyszukać jego dane wpisując Imię i Nazwisko na następnie klikając "Wybierz klienta", 
+jeżeli klient istnieje w bazie, to pokaże nam się w osobnym panelu, wybierając klienta przypisujemy go do wybranego wcześniej samochodu, 
+jeżeli klienta nie ma w bazie to możemy wpisać jego dane poniżej, 
+kliknięcie "Dodaj klienta" spowoduje dodanie go do bazy danych wraz z możliwością 
+wyboru tego klienta i przypisania go do wybranego wcześniej samochodu, 
+podobnie jak to miało miejsce w przypadku klienta, który był już w bazie.
+
+Po kliknięciu "Sprawdź rezerwacje", pierwszy rekord tabeli pokazuje "najświeższą" rezerwację. 
+W przypadku zgłoszenia zwrotu pojazdu klikamy "Zwróć pojazd", w wyświetlonym panelu klikamy ponownie "Zwróć pojazd", 
+następnie zaznaczamy na kalendarzu datę zwrotu samochodu przez klienta i klikamy ok, 
+wybieramy z listy "Tabeli wynajmu" samochód do zwrotu i klikamy "Wybierz samochód", 
+zostaje naliczona opłata, po kliknięciu "ok" zwrot zostaje zatwierdzony.
+""")
+    firstLabel.pack()
 
 def main_screen():
     global screen
@@ -883,7 +952,15 @@ def main_screen():
     tk.Button(screen, text="Logowanie", width=30, height=2, command=login).pack()
     tk.Label(screen, text="").pack()
     tk.Button(screen, text="Rejestracja", width=30, height=2, command=register).pack()
-
+    tk.Label(screen, text="Instrukcja Użytkownika").pack()
+    show_help_button = tk.Button(
+        master=screen,
+        text="Pomoc",
+        width=30,
+        height=2,
+        command=lambda: show_help(screen)
+    )
+    show_help_button.pack()
     screen.mainloop()
 
 
